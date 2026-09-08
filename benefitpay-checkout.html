@@ -16,22 +16,70 @@
   <script>
     var params = new URLSearchParams(window.location.search);
     var statusEl = document.getElementById('status');
+    var referenceNumber = params.get('referenceNumber') || 'unknown';
+    var settled = false;
+
+    // ⚠️ أداة تشخيص مؤقتة — نفقد رؤية adb logcat/WebView console بعد فتح
+    // هذه الصفحة بمتصفح خارجي حقيقي بدل WebView داخل التطبيق، فنرسل كل حدث
+    // مهم لجدول Supabase (benefitpay_client_logs) لنتمكن من تتبعه لاحقاً.
+    var LOG_URL = 'https://fkkxtgnlasbsdkjbckgt.supabase.co/rest/v1/benefitpay_client_logs';
+    var LOG_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZra3h0Z25sYXNic2RramJja2d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MTc0NDksImV4cCI6MjA5NjM5MzQ0OX0.FTdRqRL2s3rdg0CZbvJM_fWnq9fQoyZ5DEGDLdNiqZI';
+
+    function logEvent(event, detail) {
+      try {
+        fetch(LOG_URL, {
+          method: 'POST',
+          headers: {
+            'apikey': LOG_KEY,
+            'Authorization': 'Bearer ' + LOG_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            reference_number: referenceNumber,
+            event: event,
+            detail: detail || null
+          })
+        }).catch(function () {});
+      } catch (e) {}
+    }
+
+    window.onerror = function (msg, url, line, col, error) {
+      logEvent('js_error', { msg: String(msg), line: line, col: col });
+    };
+
+    logEvent('page_load', {
+      merchantId: params.get('merchantId'),
+      transactionAmount: params.get('transactionAmount'),
+      transactionCurrency: params.get('transactionCurrency'),
+      showResult: params.get('showResult'),
+      hideMobileQR: params.get('hideMobileQR'),
+      qrTimeout: params.get('qrTimeout'),
+      ua: navigator.userAgent
+    });
 
     function show(text) {
       statusEl.textContent = text;
     }
 
     function onSuccess(result) {
+      settled = true;
+      logEvent('sdk_success', result);
       show('تم الدفع بنجاح ✅\nيمكنك الرجوع للتطبيق الآن.\n\n' + JSON.stringify(result));
     }
     function onError(error) {
+      settled = true;
+      logEvent('sdk_error', error);
       show('حدث خطأ ❌\nيمكنك الرجوع للتطبيق.\n\n' + JSON.stringify(error));
     }
     function onClose() {
+      settled = true;
+      logEvent('sdk_close', null);
       show('تم إغلاق نافذة الدفع.\nيمكنك الرجوع للتطبيق.');
     }
 
     try {
+      logEvent('inapp_open_attempt', { sdkLoaded: typeof InApp !== 'undefined' });
       InApp.open({
         merchantId: params.get('merchantId'),
         appId: params.get('appId'),
@@ -46,7 +94,18 @@
         paymentType: 'web'
       }, onSuccess, onError, onClose);
       show('جارِ فتح نافذة الدفع...');
+
+      var elapsed = 0;
+      var heartbeat = setInterval(function () {
+        elapsed += 15;
+        if (settled || elapsed > 180) {
+          clearInterval(heartbeat);
+          return;
+        }
+        logEvent('still_waiting', { elapsedSeconds: elapsed });
+      }, 15000);
     } catch (e) {
+      logEvent('inapp_open_threw', { message: e.message });
       show('خطأ بتشغيل SDK: ' + e.message);
     }
   </script>
