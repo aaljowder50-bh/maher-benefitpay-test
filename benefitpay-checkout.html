@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>الدفع عبر بنفت باي</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 24px; direction: rtl; }
+    #status { font-size: 16px; color: #333; margin-top: 20px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div id="status">جارِ التحضير...</div>
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+  <script src="https://fkkxtgnlasbsdkjbckgt.supabase.co/storage/v1/object/public/ad-images/branding/InApp.min.js"></script>
+  <script>
+    var params = new URLSearchParams(window.location.search);
+    var statusEl = document.getElementById('status');
+
+    function show(text) {
+      statusEl.textContent = text;
+    }
+
+    function onSuccess(result) {
+      show('تم الدفع بنجاح ✅\nيمكنك الرجوع للتطبيق الآن.\n\n' + JSON.stringify(result));
+    }
+    function onError(error) {
+      show('حدث خطأ ❌\nيمكنك الرجوع للتطبيق.\n\n' + JSON.stringify(error));
+    }
+    function onClose() {
+      show('تم إغلاق نافذة الدفع.\nيمكنك الرجوع للتطبيق.');
+    }
+
+    try {
+      InApp.open({
+        merchantId: params.get('merchantId'),
+        appId: params.get('appId'),
+        transactionAmount: params.get('transactionAmount'),
+        transactionCurrency: params.get('transactionCurrency'),
+        referenceNumber: params.get('referenceNumber'),
+        hashedString: params.get('secureHash'),
+        secure_hash: params.get('secureHash'),
+        showResult: Number(params.get('showResult')),
+        hideMobileQR: Number(params.get('hideMobileQR')),
+        qr_timeout: Number(params.get('qrTimeout')),
+        paymentType: 'web'
+      }, onSuccess, onError, onClose);
+      show('جارِ فتح نافذة الدفع...');
+    } catch (e) {
+      show('خطأ بتشغيل SDK: ' + e.message);
+    }
+  </script>
+</body>
+</html>
