@@ -88,10 +88,10 @@
         referenceNumber: params.get('referenceNumber'),
         hashedString: params.get('secureHash'),
         secure_hash: params.get('secureHash'),
-        showResult: Number(params.get('showResult')),
-        hideMobileQR: Number(params.get('hideMobileQR')),
+        showResult: Boolean(Number(params.get('showResult'))),
+        hideMobileQR: Boolean(Number(params.get('hideMobileQR'))),
         qr_timeout: Number(params.get('qrTimeout')),
-        paymentType: 'web'
+        paymentType: 'inapp'
       }, onSuccess, onError, onClose);
       show('جارِ فتح نافذة الدفع...');
 
